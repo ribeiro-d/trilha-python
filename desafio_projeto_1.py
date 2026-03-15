@@ -101,7 +101,7 @@ class Historico:
 
 
 class Conta:
-    def __init__(self, numero: int, cliente: Cliente, agencia: str = "0001", historico=Historico()):
+    def __init__(self, numero: int, cliente: Cliente, agencia: str = "0001", historico=Historico()) -> None:
         self._saldo = 0
         self._numero = numero
         self._agencia = agencia
@@ -130,24 +130,27 @@ class Conta:
 
     def sacar(self, valor: float) -> bool:
         saldo_insuficiente = valor > self.saldo
+        valor_invalido = valor <= 0
 
         if saldo_insuficiente:
             print("=/=/= Saldo insuficiente. =/=/=")
 
-        elif valor > 0:
-            self._valor -= valor
-            print(f"====== R$ {valor:.2f} sacados com sucesso. ======")
-            return True
+        elif valor_invalido:
+            print("=/=/= Valor inválido. =/=/=")
 
         else:
-            print("=/=/= Valor inválido. Tente novamente. =/=/=")
+            self._saldo -= valor
+            print(f"====== R$ {valor:.2f} sacados com sucesso. ======")
+            self.historico.adicionar_transacao(Saque(valor))
+            return True
 
         return False
 
     def depositar(self, valor: float) -> bool:
         if valor > 0:
-            self._valor += valor
+            self._saldo += valor
             print(f"====== R$ {valor:.2f} depositados com sucesso. ======")
+            self.historico.adicionar_transacao(Deposito(valor))
             return True
         else:
             print("====== Não foi possível depositar o valor na conta. ======")
@@ -155,18 +158,19 @@ class Conta:
 
 
 class ContaCorrente(Conta):
-    def __init__(self, numero, agencia, cliente, historico, limite=500, limite_saques=3):
+    def __init__(self, numero, agencia, cliente, historico=Historico(), limite=500, limite_saques=3) -> None:
         super().__init__(numero, agencia, cliente, historico)
         self.limite = limite
         self.limite_saques = limite_saques
 
-    def sacar(self, valor: int):
+    def sacar(self, valor: int) -> bool:
         saldo = self.saldo
+        saques = [
+            transacao for transacao in self.historico.transacoes if transacao["tipo"] == "Saque"]
         valor_invalido = valor <= 0
         saldo_insuficiente = valor > saldo
         excedeu_limite = valor > self.limite
-        numero_saques = len(
-            [saque for saque in self.historico if self.historico["tipo"] == "Saque"])
+        numero_saques = len(saques)
         atingiu_limite_saques = numero_saques >= self.limite_saques
 
         if valor_invalido:
@@ -178,8 +182,9 @@ class ContaCorrente(Conta):
         elif saldo_insuficiente:
             print("Saldo insuciente.")
         else:
-            self._valor -= valor
+            self._saldo -= valor
             print(
                 f"====== Saque de R$ {valor:.2f} realizado com sucesso. ======")
+            self.historico.adicionar_transacao(Saque(valor))
             return True
         return False
